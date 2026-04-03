@@ -660,6 +660,189 @@ $repo->search($query, $fields);
 $repo->existsBy($criteria);
 ```
 
+## Patrón Result
+
+Xpress ORM incluye un patrón Result para manejar operaciones de base de datos de forma funcional, evitando excepciones y permitiendo encadenamiento.
+
+### Métodos Result en Repositorio
+
+```php
+// findOrFail - Retorna XResult en vez de lanzar excepción
+$result = $repo->findOrFail($id);
+
+if ($result->isSuccess()) {
+    $user = $result->getValue();
+} else {
+    $error = $result->getError();
+    echo $error->getMessage(); // "User not found"
+}
+
+// findOneOrFail - Busca uno o retorna error
+$result = $repo->findOneOrFail(['email' => 'test@example.com']);
+
+// saveOrFail - Guarda y retorna 201 si es nuevo, 200 si es actualización
+$result = $repo->saveOrFail($user);
+
+// deleteOrFail - Elimina sin excepción
+$result = $repo->deleteOrFail($user);
+
+// deleteByIdOrFail - Encuentra y elimina
+$result = $repo->deleteByIdOrFail($id);
+
+// existsOrFail - Verifica existencia
+$result = $repo->existsOrFail($id);
+
+// paginateResult - Paginación con Result
+$result = $repo->paginateResult(1, 20, ['status' => 'active']);
+
+// searchResult - Búsqueda con Result
+$result = $repo->searchResult('john', ['name', 'email']);
+```
+
+### Métodos Result en EntityManager
+
+```php
+$em = new XEntityManager($connection);
+
+// findOrFail
+$result = $em->findOrFail(User::class, $id);
+
+// saveOrFail
+$result = $em->saveOrFail($user);
+
+// deleteOrFail
+$result = $em->deleteOrFail($user);
+```
+
+### Trait XResultRepository
+
+Para uso en repositorios personalizados:
+
+```php
+<?php
+use Xpress\Orm\Attributes\Repository\XRepository;
+use Xpress\Orm\Entity\XEntityManager;
+use Xpress\Orm\Result\XResultRepository;
+use Xpress\Orm\Result\XResult;
+
+#[XRepository(entity: User::class)]
+class UserRepository extends XBaseRepository
+{
+    use XResultRepository;
+
+    public function findByEmail(string $email): XResult
+    {
+        return $this->findOneResult(['email' => $email]);
+    }
+
+    public function activate(int $id): XResult
+    {
+        return $this->findResult($id)
+            ->andThen(fn($user) => $this->try(fn() => $this->saveOrFail($user)));
+    }
+}
+```
+
+### XResult - API
+
+```php
+use Xpress\Orm\Result\XResult;
+
+// Verificación
+$result->isSuccess();      // true/false
+$result->isFailure();      // true/false
+$result->isNotFound();     // true si es 404
+$result->isConflict();     // true si es 409
+$result->isServerError();  // true si es 5xx
+
+// Extracción de valores
+$result->getValue();                // valor o null
+$result->getValueOr($default);      // valor o default
+$result->unwrap();                   // lanza excepción si error
+$result->unwrapOrNull();            // null si error
+
+// Manejo de errores
+$result->getError();                // XError o null
+$result->getErrorMessage();         // string del error
+$result->getErrorCode();            // código HTTP
+$result->getErrorData();            // datos adicionales
+
+// Encadenamiento
+$result->map(fn($v) => transform($v));
+$result->andThen(fn($v) => otraOperacion($v));
+$result->mapError(fn($e) => XError::...);
+$result->orElse(fn($e) => $fallback);
+```
+
+### XError - API
+
+```php
+use Xpress\Orm\Result\XError;
+
+XError::notFound('Usuario no encontrado');
+XError::conflict('Email ya existe');
+XError::database('Error de conexión');
+XError::validation(['email' => 'inválido']);
+```
+
+### Ejemplo Completo
+
+```php
+<?php
+use Xpress\Orm\Attributes\Repository\XRepository;
+use Xpress\Orm\Result\XResultRepository;
+use Xpress\Orm\Result\XResult;
+
+#[XRepository(entity: User::class)]
+class UserRepository extends XBaseRepository
+{
+    use XResultRepository;
+
+    public function findActiveUser(int $id): XResult
+    {
+        return $this->findResult($id)
+            ->andThen(fn($user) => $user->isActive() 
+                ? XResult::ok($user)
+                : XResult::fail('Usuario inactivo', 403));
+    }
+
+    public function createUser(array $data): XResult
+    {
+        return $this->try(function() use ($data) {
+            $existing = $this->findOne(['email' => $data['email']]);
+            if ($existing !== null) {
+                return XResult::fail('Email ya registrado', 409);
+            }
+
+            $user = new User($data);
+            return $this->saveResult($user);
+        });
+    }
+}
+
+// Uso en controlador
+$userRepo = $em->getRepository(UserRepository::class);
+
+$result = $userRepo->createUser(['name' => 'Juan', 'email' => 'juan@test.com']);
+
+$result
+    ->map(fn($user) => $user->toArray())
+    ->andThen(fn($data) => XResult::ok($this->sendEmail($data)))
+    ->mapError(fn($e) => $this->logError($e));
+```
+
+### Compatibilidad hacia atrás
+
+Todos los métodos tradicionales siguen disponibles. Los métodos Result son adicionales:
+
+```php
+// Tradicional - lanza excepción si no existe
+$user = $repo->find($id);  // null si no existe
+
+// Result - sin excepción
+$result = $repo->findOrFail($id);
+```
+
 ## Licencia
 
 MIT License - ver archivo [LICENSE](LICENSE) para más detalles.

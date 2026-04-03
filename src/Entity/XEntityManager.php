@@ -593,4 +593,39 @@ final class XEntityManager
     {
         return $this->identityMap;
     }
+
+    public function findOrFail(string $className, mixed $id, array $options = []): \Xpress\Orm\Result\XResult
+    {
+        return \Xpress\Orm\Result\XResult::ok($this->find($className, $id, $options))->andThen(function($entity) use ($id) {
+            if ($entity === null) {
+                return \Xpress\Orm\Result\XResult::fail(
+                    $className . ' not found',
+                    404,
+                    ['id' => $id]
+                );
+            }
+            return \Xpress\Orm\Result\XResult::ok($entity);
+        });
+    }
+
+    public function saveOrFail(object $entity): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $saved = $this->save($entity);
+            $isNew = !in_array(spl_object_id($entity), array_keys($this->identityMap));
+            return \Xpress\Orm\Result\XResult::ok($saved, $isNew ? 201 : 200);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
+
+    public function deleteOrFail(object $entity, bool $hard = false): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $this->delete($entity, $hard);
+            return \Xpress\Orm\Result\XResult::ok(null, 204);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
 }

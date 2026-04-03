@@ -286,4 +286,97 @@ abstract class XBaseRepository
         $qb->where("{$column} LIKE :{$paramName}", null, $type === 'OR' ? 'OR' : 'AND');
         $qb->setParameter($paramName, "%{$value}%");
     }
+
+    public function findOrFail(mixed $id): \Xpress\Orm\Result\XResult
+    {
+        return \Xpress\Orm\Result\XResult::ok($this->find($id))->andThen(function($entity) use ($id) {
+            if ($entity === null) {
+                return \Xpress\Orm\Result\XResult::fail(
+                    $this->entityClass . ' not found',
+                    404,
+                    ['id' => $id]
+                );
+            }
+            return \Xpress\Orm\Result\XResult::ok($entity);
+        });
+    }
+
+    public function findOneOrFail(array $criteria = [], array $options = []): \Xpress\Orm\Result\XResult
+    {
+        return \Xpress\Orm\Result\XResult::ok($this->findOne($criteria, $options))->andThen(function($entity) use ($criteria) {
+            if ($entity === null) {
+                return \Xpress\Orm\Result\XResult::fail(
+                    'Entity not found',
+                    404,
+                    ['criteria' => $criteria]
+                );
+            }
+            return \Xpress\Orm\Result\XResult::ok($entity);
+        });
+    }
+
+    public function saveOrFail(object $entity): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $saved = $this->save($entity);
+            $isNew = !in_array(spl_object_id($entity), array_keys($this->entityManager->getIdentityMap()));
+            return \Xpress\Orm\Result\XResult::ok($saved, $isNew ? 201 : 200);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
+
+    public function deleteOrFail(object $entity, bool $hard = false): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $this->delete($entity, $hard);
+            return \Xpress\Orm\Result\XResult::ok(null, 204);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
+
+    public function deleteByIdOrFail(mixed $id, bool $hard = false): \Xpress\Orm\Result\XResult
+    {
+        return $this->findOrFail($id)->andThen(function($entity) use ($hard) {
+            return $this->deleteOrFail($entity, $hard);
+        });
+    }
+
+    public function existsOrFail(mixed $id): \Xpress\Orm\Result\XResult
+    {
+        $exists = $this->exists($id);
+        if ($exists) {
+            return \Xpress\Orm\Result\XResult::ok(['exists' => true]);
+        }
+        return \Xpress\Orm\Result\XResult::fail(
+            $this->entityClass . ' not found',
+            404,
+            ['id' => $id]
+        );
+    }
+
+    public function paginateResult(int $page = 1, int $perPage = 20, array $criteria = [], array $options = []): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $result = $this->paginate($page, $perPage, $criteria, $options);
+            return \Xpress\Orm\Result\XResult::ok($result);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
+
+    public function searchResult(string $query, array $fields = [], array $options = []): \Xpress\Orm\Result\XResult
+    {
+        try {
+            $results = $this->search($query, $fields, $options);
+            return \Xpress\Orm\Result\XResult::ok([
+                'items' => $results,
+                'total' => count($results),
+                'query' => $query
+            ]);
+        } catch (\Throwable $e) {
+            return \Xpress\Orm\Result\XResult::fromThrowable($e);
+        }
+    }
 }
