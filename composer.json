@@ -1,5 +1,5 @@
 {
-    "name": "azul/xpress-orm",
+    "name": "dr2gsistemas/xpress-orm",
     "description": "ORM ligero para PHP 8.4 con atributos, relaciones y auto-migrate para MariaDB",
     "type": "library",
     "license": "MIT",

@@ -1,0 +1,32 @@
+name: Release to Packagist
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+
+      - name: Install dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Validate composer.json
+        run: composer validate
+
+      - name: Publish to Packagist
+        uses: pre上了/publish-to-packagist@1.0.0
+        with:
+          repo: dr2gsistemas/xpress-orm
+        env:
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+          PACKAGIST_REPO: ${{ secrets.PACKAGIST_REPO }}
