@@ -24,7 +24,7 @@ Xpress ORM es un mapper objeto-relacional ligero y rápido para PHP 8.4, diseña
 ## Instalación
 
 ```bash
-composer require azul/xpress-orm
+composer require dr2gsistemas/xpress-orm
 ```
 
 ## Configuración Rápida
@@ -841,6 +841,16 @@ $user = $repo->find($id);  // null si no existe
 
 // Result - sin excepción
 $result = $repo->findOrFail($id);
+```
+
+## Testing
+
+```bash
+# Ejecutar tests con Pest (recomendado)
+./vendor/bin/pest
+
+# O con Composer
+composer test
 ```
 
 ## Licencia
