@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Xpress\Orm\Attributes\Entity;
 
+use Attribute;
+
 #[Attribute(Attribute::TARGET_CLASS)]
 final class XEntity
 {

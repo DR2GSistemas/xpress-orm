@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Xpress\Orm\Attributes\Entity;
 
+use Attribute;
+
 #[Attribute(Attribute::TARGET_PROPERTY)]
 final class XRelation
 {
@@ -93,7 +95,7 @@ final class XRelation
             inversedBy: $inversedBy,
             joinTableName: $joinTable,
             joinColumn: $joinColumn,
-            inverseJoinColumn: $inverseJoinColumn,
+            inverseJoinColumns: $inverseJoinColumn !== null ? [$inverseJoinColumn] : null,
             eager: $eager
         );
     }
